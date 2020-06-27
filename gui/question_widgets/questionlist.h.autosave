@@ -1,0 +1,37 @@
+#ifndef QUESTIONLIST_H
+#define QUESTIONLIST_H
+
+#include <QWidget>
+#include "./logic/basicquestion.h"
+
+QT_BEGIN_NAMESPACE
+class QuestionListElement;
+class QVBoxLayout;
+class QSpacerItem;
+class QPushButton;
+QT_END_NAMESPACE
+
+class QuestionList : public QWidget
+{
+    Q_OBJECT
+public:
+    explicit QuestionList(QWidget *parent = nullptr);
+    void addQuestion(const basicQuestionPtr& question);
+
+    void removeQuestion(int index);
+    void removeQuestion(const basicQuestionPtr& question);
+
+signals:
+    void questionRemoved(basicQuestionPtr question);
+    void startQuestionEdit(QuestionListElement *element);
+
+private:
+    QList<QuestionListElement*> questionsList;
+
+    QVBoxLayout *layout;
+    QPushButton *addButton;
+    QSpacerItem *spacer;
+
+};
+
+#endif // QUESTIONLIST_H

@@ -1,0 +1,37 @@
+#ifndef ONEANSWERWIDGET_H
+#define ONEANSWERWIDGET_H
+
+#include <QWidget>
+#include <QSharedPointer>
+#include "./logic/singlequestion.h"
+namespace Ui {
+class QuestionWidget;
+}
+class SingleQuestion;
+class QuestionWidget : public QWidget
+{
+    Q_OBJECT
+public:
+    explicit QuestionWidget(singleQuestionPtr question, QWidget *parent = nullptr);
+    ~QuestionWidget();
+
+    void setQuestion(singleQuestionPtr question);
+    void startTime();
+    singleQuestionPtr getQuestion() const {return question;}
+    
+signals:
+    void timeout();
+    void answerChecked(bool isCorrect);
+private slots:
+    void onAnswerChecked(bool isCorrect);
+private:
+    Ui::QuestionWidget *ui;
+    QTimer *shortTimer = nullptr;
+    singleQuestionPtr question;
+    bool timeCounter = false;
+
+    void setupGui();
+    void makeConnection();
+};
+
+#endif // ONEANSWERWIDGET_H

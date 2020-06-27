@@ -1,0 +1,136 @@
+#include "questionwidget.h"
+#include "ui_questionwidget.h"
+#include "./logic/singlequiz.h"
+#include <QTimer>
+#include <QRadioButton>
+#include <QDebug>
+
+QuestionWidget::QuestionWidget(singleQuestionPtr question, QWidget *parent) :
+    QWidget(parent),
+    ui(new Ui::QuestionWidget)
+  , shortTimer(new QTimer(this))
+  , question(question)
+{
+    ui->setupUi(this);
+    makeConnection();
+    QVBoxLayout *layout = new QVBoxLayout();
+    this->ui->answerBox->setLayout(layout);
+    setQuestion(question);
+}
+
+QuestionWidget::~QuestionWidget()
+{
+    delete ui;
+}
+
+void QuestionWidget::setQuestion(singleQuestionPtr question)
+{
+    this->question = question;
+    setupGui();
+}
+
+void QuestionWidget::startTime()
+{
+    const static int interval = 10; //in milliseconds
+    const static int barMaxValue = 10000;
+    shortTimer->disconnect();
+    if(timeCounter){
+        ui->timeWidget->show();
+        ui->timeProgBar->setMaximum(barMaxValue);
+        ui->timeProgBar->setValue(barMaxValue);
+        shortTimer->setInterval(interval);
+        
+        const int maxTime = question->getTime().msecsSinceStartOfDay();
+        int currentTime = maxTime;
+        
+        auto lambda = [=]()mutable{
+            currentTime -= interval;
+            ui->timeProgBar->setValue((static_cast<double>(currentTime)/maxTime) * barMaxValue);
+        };
+        
+        connect(shortTimer, &QTimer::timeout, lambda);
+        
+        QTimer::singleShot(maxTime, this, [=](){
+            emit timeout();
+        });
+        
+        shortTimer->start();
+    }
+    
+}
+
+void QuestionWidget::onAnswerChecked(bool isCorrect)
+{
+    if(isCorrect){
+        qDebug()<<"correct answer clicked!";
+    }
+    else{
+        qDebug() <<"sdasgfdrefrfdfgh";
+    }
+}
+
+void QuestionWidget::setupGui()
+{
+    const SingleQuiz * quiz = question->getQuiz();
+    ui->timeWidget->hide();
+    //time
+    if(question->isTimeSpecified() && (quiz==nullptr || quiz->getMaxTime().isNull())){
+        timeCounter = true;
+    }
+    else{
+        timeCounter = false;
+    }
+    //image
+    if(question->hasImage()){
+        ui->imageLabel->show();
+        ui->imageLabel->setPixmap(question->getImage());
+    }
+    else{
+        ui->imageLabel->hide();
+    }
+    //points and question number
+    if(quiz == nullptr){
+        ui->infoLabel->setText(QString::number(question->getPoints()) + " pkt.");
+    }
+    else{
+        ui->infoLabel->setText("Question " + QString::number(quiz->getQuestions().indexOf(question) + 1) + "/" +
+                               QString::number(quiz->getQuestions().size()) + " " + QString::number(question->getPoints()) + " pkt.");
+    }
+    
+    //description
+    this->ui->descriptionLabe->setText(question->getDescription());
+    
+    //groupBox
+    QVBoxLayout *layout = qobject_cast<QVBoxLayout*>(this->ui->answerBox->layout());
+    if(layout==nullptr){
+        qDebug()<<"Wrong Layout! questionwidget.cpp";
+        return;
+    }
+    
+    for(int i=0; i<question->getAnswers().size();i++){
+        QRadioButton *button = new QRadioButton(this->ui->answerBox);
+        button->setText(question->getAnswers().at(i));
+        
+        if(question->getGoodAnswersIndexes().contains(i))
+            connect(button, &QRadioButton::clicked,this, [=](bool checked){
+                if(checked){
+                    emit this->answerChecked(true);
+                }
+            });
+        else{
+            connect(button, &QRadioButton::clicked,this, [=](bool checked){
+                if(checked){
+                    emit this->answerChecked(false);
+                }
+            });
+        }
+        
+        layout->addWidget(button);
+    }
+    
+}
+
+void QuestionWidget::makeConnection()
+{
+    connect(this, &QuestionWidget::answerChecked, this, &QuestionWidget::onAnswerChecked);
+}

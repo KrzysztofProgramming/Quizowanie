@@ -1,0 +1,34 @@
+#include "questionlist.h"
+#include <QSpacerItem>
+#include <QVBoxLayout>
+#include <QPushButton>
+#include "./gui/question_widgets/questionlistelement.h"
+
+QuestionList::QuestionList(QWidget *parent) : QWidget(parent)
+  ,layout(new QVBoxLayout)
+  ,addButton(new QPushButton(tr("Dodaj pytanie"), this))
+  ,spacer(new QSpacerItem(0,0, QSizePolicy::Preferred, QSizePolicy::Expanding))
+{
+    this->setLayout(layout);
+    
+    this->layout->addItem(spacer);
+    this->layout->addWidget(addButton);
+    
+}
+
+void QuestionList::addQuestion(const basicQuestionPtr &question)
+{
+    QuestionListElement *element = new QuestionListElement(this);
+    element->setQuestion(question);
+    
+    connect(element->removeButton(), &QPushButton::clicked, this, [=](){
+        this->questionsList.removeAll(element);
+        element->deleteLater();
+        emit this->questionRemoved(question);
+    });
+    
+    connect(element->editButton(), &QPushButton::clicked, this, [=](){
+        emit this->startQuestionEdit(element);
+    });
+    
+}
