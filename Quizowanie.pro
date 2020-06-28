@@ -43,6 +43,7 @@ SOURCES += \
     logic/basicquestion.cpp \
     logic/database/databasemanager.cpp \
     logic/database/quizdatabase.cpp \
+    logic/database/quizstore.cpp \
     logic/multiquestion.cpp \
     logic/singlequestion.cpp \
     logic/singlequiz.cpp \
@@ -76,6 +77,7 @@ HEADERS += \
     gui/mainwindow.h \
     logic/database/databasemanager.h \
     logic/database/quizdatabase.h \
+    logic/database/quizstore.h \
     logic/multiquestion.h \
     logic/quizdatabase.h \
     logic/singlequestion.h \
