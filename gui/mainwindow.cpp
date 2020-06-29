@@ -4,6 +4,7 @@
 #include "./logic/database/databasemanager.h"
 #include "simple_widgets/changepathdialog.h"
 #include "simple_widgets/aboutdialog.h"
+#include "./logic/database/quizstore.h"
 #include <QMessageBox>
 
 MainWindow::MainWindow(QWidget *parent)
@@ -18,9 +19,9 @@ MainWindow::MainWindow(QWidget *parent)
     this->setWindowTitle("Quizowanie");
     loadFromDataDir();
 
-    dbManager = new DatabaseManager(quizesDirectory);
-    customDbManager = new DatabaseManager(customQuizesDirectory);
-    loadAllQuizes();
+    defaultQuizStore = new QuizStore(this, quizesDirectory);
+    customQuizStore = new QuizStore(this, customQuizesDirectory);
+
     titlewidget = new TitleWidget(this);
 
     ui->centralWidget->addWidget(titlewidget);
@@ -33,12 +34,11 @@ MainWindow::MainWindow(QWidget *parent)
 MainWindow::~MainWindow()
 {
     delete ui;
-    delete dbManager;
 }
 
 void MainWindow::onChangingDirClicked()
 {
-    pathDialog->setPath(this->customDbManager->getDir().absolutePath());
+    pathDialog->setPath(this->customQuizStore->getDir().absolutePath());
     pathDialog->setDescription(tr("Podczas przenoszenia wycinany jest cały folder z quizami a jego stara lokalizacja jest usuwana"));
     pathDialog->setNoEmptyError(false);
     pathDialog->setCommentFunction([=](const QString& path)->QString{
@@ -73,14 +73,14 @@ void MainWindow::onChangingDirClicked()
 
     int value = pathDialog->exec();
     if(value == QDialog::Accepted){
-        if(this->customDbManager->getDir().absolutePath()!= pathDialog->getPath()){
+        if(this->customQuizStore->getDir().absolutePath()!= pathDialog->getPath()){
             this->customQuizesDirectory = QDir().relativeFilePath(pathDialog->getPath());
 
-            if(this->savePathToFile() && this->customDbManager->changeDirectory(customQuizesDirectory, true)){
+            if(this->savePathToFile() && this->customQuizStore->changeDir(customQuizesDirectory, true)){
                 QMessageBox::information(this, tr("Sukces"), tr("Pomyślnie zmieniono ścieżkę"));
             }
             else{
-                this->customQuizesDirectory = QDir().relativeFilePath(this->customDbManager->getDir().path());
+                this->customQuizesDirectory = QDir().relativeFilePath(this->customQuizStore->getDir().path());
                 this->savePathToFile();
                 QMessageBox::critical(this, tr("Niepowodzenie"), tr("Nie udało się zmienić ścieżki"));
             }
@@ -100,7 +100,7 @@ void MainWindow::onAddQuizClicked()
     pathDialog->setDescription("Wybierz folder z quizem, zostanie on skopiowany do innych twoich quizów");
     pathDialog->setCommentFunction([=](const QString& path)->QString{
         QDir dir(path);
-        if(!DatabaseManager::canMove(dir, this->customDbManager->getDir()))
+        if(!DatabaseManager::canMove(dir, this->customQuizStore->getDir()))
             return tr("Folder o takiej nazwie już istnieje w katalogu z quizami");
         else if(DatabaseManager::containsQuizDatabase(dir))
             return tr("OK");
@@ -109,7 +109,7 @@ void MainWindow::onAddQuizClicked()
     });
 
     pathDialog->setCheckingFunction([=](const QString& path)->bool{
-        if(!DatabaseManager::canMove(path, this->customDbManager->getDir())){
+        if(!DatabaseManager::canMove(path, this->customQuizStore->getDir())){
             QMessageBox::information(pathDialog, tr("Zły folder"), tr("Folder o takiej nazwie już istnieje w katalogu z quizami"));
             return false;
         }
@@ -141,7 +141,7 @@ void MainWindow::onAddQuizClicked()
                 QMessageBox::critical(this, tr("Bład"), tr("Nie udało się skopowiać quizu"));
             }
             else{
-                titlewidget->onQuizSaved(quiz);
+                titlewidget->onQuizSave(quiz);
                 QMessageBox::information(this, tr("Sukces"), tr("Pomyślnie władowano twój quiz"));
             }
         }
@@ -149,11 +149,6 @@ void MainWindow::onAddQuizClicked()
     }
 }
 
-void MainWindow::loadAllQuizes()
-{
-    quizList = dbManager->readAllQuizes();
-    customQuizList = customDbManager->readAllQuizes();
-}
 
 void MainWindow::createActions()
 {
@@ -260,7 +255,7 @@ bool MainWindow::savePathToFile()
 void MainWindow::putTextToAboutDialog()
 {
     this->aboutDialog->setText(tr("Program \"Quizowanie\" jest to program pozwalający na rozwiązywanie gotowych quizów, "
-                               "jak również tworzenia i grania we własne. Posiada również możliwość zmiany ścieżki przechowywania"
-                               " swoich quizów oraz na dodanie innych, już gotowych.\n\n"
-                               "Autor programu: Krzysztof Konieczny"));
+                                  "jak również tworzenia i grania we własne. Posiada również możliwość zmiany ścieżki przechowywania"
+                                  " swoich quizów oraz na dodanie innych, już gotowych.\n\n"
+                                  "Autor programu: Krzysztof Konieczny"));
 }

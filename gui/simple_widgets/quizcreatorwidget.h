@@ -2,7 +2,6 @@
 #define QUIZCREATORWIDGET_H
 
 #include <QStackedWidget>
-#include <QFuture>
 #include "./logic/basicquestion.h"
 #include "./logic/singlequiz.h"
 
@@ -13,9 +12,6 @@ class QuestionListElement;
 class MainWindow;
 class LoadingWidget;
 class BusyLabel;
-
-template<typename T>
-class QFutureWatcher;
 QT_END_NAMESPACE
 
 class QuizCreatorWidget : public QStackedWidget
@@ -40,15 +36,11 @@ private slots:
     void onConfirmNewQuestion(basicQuestionPtr question);
     void onEditingQuestion(QuestionListElement *element);
     void onQuizConfirmed(singleQuizPtr quiz);
-    void onWatcherFinished();
 
 private:
     CreateQuizWidget *quizCreator;
     CreateQuestionWidget *questionCreator;
     QuestionListElement *editingElement;
-    BusyLabel *busyLabel;
-    QFutureWatcher<bool> *watcher;
-    QFuture<bool> future;
 
 
     singleQuizPtr quizToEdit = nullptr;

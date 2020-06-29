@@ -23,10 +23,7 @@ constexpr char DatabaseManager::invalidCharacters[];
 bool DatabaseManager::saveQuiz(singleQuizPtr quiz, bool override)
 {
     createDirIfNotExists();
-    QString quizTitle = quiz->getTitle();
-    for(int i=0 ;i<SIZE-1; i++){
-        quizTitle.replace(DatabaseManager::invalidCharacters[i], replacementChar);
-    }
+    QString quizTitle = this->toDirName(quiz->getTitle());
 
     if(dir.exists(quizTitle)){
         if(override){
@@ -46,12 +43,10 @@ QFuture<bool> DatabaseManager::saveQuizAsync(singleQuizPtr quiz, bool override)
 {
     QString title = QString(quiz->getTitle());
 
-    auto worker = [override, quiz](const QString& path, QString quizTitle)->bool{
+    auto worker = [override, quiz](const QString& path,const QString& title)->bool{
         QDir dir(path);
         dir.mkpath(dir.absolutePath());
-        for(int i=0 ;i<SIZE-1; i++){
-            quizTitle.replace(DatabaseManager::invalidCharacters[i], replacementChar);
-        }
+        QString quizTitle = DatabaseManager::toDirName(title);
 
         if(dir.exists(quizTitle)){
             if(override){
@@ -72,10 +67,7 @@ QFuture<bool> DatabaseManager::saveQuizAsync(singleQuizPtr quiz, bool override)
 
 bool DatabaseManager::removeQuiz(const QString &title)
 {
-    QString quizTitle = title;
-    for(int i=0 ;i<SIZE-1; i++){
-        quizTitle.replace(DatabaseManager::invalidCharacters[i], replacementChar);
-    }
+    QString quizTitle = this->toDirName(title);
     if(dir.exists(quizTitle)){
         QDir quizDir = dir;
         quizDir.cd(quizTitle);
@@ -125,6 +117,21 @@ QList<singleQuizPtr> DatabaseManager::readAllQuizesAsync()
     }
     return QtConcurrent::blockingMapped(quizesList, &QuizDatabase::readQuizFromDatabase);
 
+}
+
+bool DatabaseManager::canCreateThisQuiz(const QString &title)
+{
+    return !this->dir.exists(this->toDirName(title));
+}
+
+QStringList DatabaseManager::getActualFoldersNames() const
+{
+    QFileInfoList infoList = this->dir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot);
+    QStringList list;
+    for(const QFileInfo info :qAsConst(infoList)){
+        list.append(info.fileName());
+    }
+    return list;
 }
 
 bool DatabaseManager::clearDir(const QDir& dir)
@@ -330,4 +337,13 @@ bool DatabaseManager::changeDirectory(QDir &&directory, bool removeOld)
 void DatabaseManager::createDirIfNotExists()
 {
     dir.mkpath(dir.absolutePath());
+}
+
+QString DatabaseManager::toDirName(const QString &title)
+{
+    QString quizTitle = title;
+    for(int i=0 ;i<SIZE-1; i++){
+        quizTitle.replace(DatabaseManager::invalidCharacters[i], replacementChar);
+    }
+    return quizTitle;
 }

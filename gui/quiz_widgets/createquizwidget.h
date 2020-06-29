@@ -69,6 +69,10 @@ private:
      * @see getDorbiddenTitles(), setForbiddenTitles()
      */
     QStringList forbiddenTitles;
-};
 
+    bool validateTitle(const QString& title);
+
+    static constexpr int SIZE =2;
+    const QString forbiddenAloneSymbols = "\t ";
+};
 #endif // CREATEQUIZWIDGET_H

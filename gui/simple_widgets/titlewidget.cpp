@@ -8,6 +8,8 @@
 #include "./gui/simple_widgets/quizcreatorwidget.h"
 #include "./gui/quiz_widgets/quizareadisplay.h"
 #include "./logic/database/databasemanager.h"
+#include "./logic/database/quizstore.h"
+#include "busylabel.h"
 #include <QMessageBox>
 
 TitleWidget::TitleWidget(MainWindow *parent) :
@@ -15,9 +17,10 @@ TitleWidget::TitleWidget(MainWindow *parent) :
     mainWindow(parent)
   , ui(new Ui::TitleWidget)
   , mainMenu(new MainMenu(this))
-  , defaultQuizes(new MultiQuizWidget(this))
-  , customQuizes(new MultiQuizWidget(this))
+  , defaultQuizes(new MultiQuizWidget(this, mainWindow->getDefaultQuizStore()))
+  , customQuizes(new MultiQuizWidget(this, mainWindow->getCustomQuizStore()))
   , creator(new QuizCreatorWidget(parent, this))
+  , busyLabel(new BusyLabel(this))
 {
     ui->setupUi(this);
     QFont font = ui->titleLabel->font();
@@ -28,9 +31,10 @@ TitleWidget::TitleWidget(MainWindow *parent) :
     ui->stackedWidget->addWidget(defaultQuizes);
     ui->stackedWidget->addWidget(customQuizes);
     ui->stackedWidget->addWidget(creator);
+    ui->stackedWidget->addWidget(busyLabel);
 
-    customQuizes->setQuiz(mainWindow->getCustomQuizes());
-    defaultQuizes->setQuiz(mainWindow->getQuizes());
+    // customQuizes->setQuizes(mainWindow->getCustomQuizes());
+    //defaultQuizes->setQuizes(mainWindow->getDefaultQuizStore()->getAllQuizes());ds
 
     connect(customQuizes, SIGNAL(backToMenu()), this, SLOT(backToMenu()));
     connect(defaultQuizes, SIGNAL(backToMenu()), this, SLOT(backToMenu()));
@@ -40,11 +44,12 @@ TitleWidget::TitleWidget(MainWindow *parent) :
     connect(mainMenu->manageButton(), &QPushButton::clicked, this, &TitleWidget::managaQuizes);
 
     connect(creator, SIGNAL(back(bool)), this, SLOT(backToMenu(bool)));
-    connect(creator, &QuizCreatorWidget::quizSaved, this, &TitleWidget::onQuizSaved);
+    connect(creator, &QuizCreatorWidget::quizSaved, this, &TitleWidget::onQuizSave);
     connect(creator, &QuizCreatorWidget::quizEdited, this, &TitleWidget::onQuizEdited);
     connect(this->customQuizes->getDisplay(), &QuizAreaDisplay::removeQuizClicked,this, &TitleWidget::onQuizRemove);
     connect(this->customQuizes->getDisplay(), &QuizAreaDisplay::editQuizClicked,this, &TitleWidget::onQuizStartEdit);
-
+    connect(this->mainWindow->getCustomQuizStore(), &QuizStore::quizAdded, this, &TitleWidget::onQuizSavingCompleted);
+    connect(this->mainWindow->getCustomQuizStore(), &QuizStore::addingFailed, this, &TitleWidget::onQuizSavingFailed);
 }
 
 TitleWidget::~TitleWidget()
@@ -80,11 +85,11 @@ void TitleWidget::backToMenu(bool fromEditMode)
     if(fromEditMode) managaQuizes();
     else this->ui->stackedWidget->setCurrentWidget(mainMenu);
 }
-void TitleWidget::onQuizSaved(singleQuizPtr quiz)
+void TitleWidget::onQuizSave(singleQuizPtr quiz)
 {
-    //adding to database in quizCreatorWidget
-    mainWindow->getQuizes().append(quiz);
-    customQuizes->addQuiz(quiz);
+    this->fromEditMode = false;
+    this->mainWindow->getCustomQuizStore()->addQuizAsync(quiz);
+    this->ui->stackedWidget->setCurrentWidget(busyLabel);
 }
 
 void TitleWidget::onQuizStartEdit(singleQuizPtr quiz)
@@ -100,20 +105,37 @@ void TitleWidget::onQuizRemove(singleQuizPtr quiz)
                                      QMessageBox::Yes | QMessageBox::Cancel);
     if(value!=QMessageBox::Yes) return;
 
-    if(!mainWindow->getCustomDbManager()->removeQuiz(quiz->getTitle())){
+    if(!mainWindow->getCustomQuizStore()->removeQuiz(quiz)){
         QMessageBox::critical(this, tr("Error"), tr("Nie udało się usunąć quizu, sprawdź czy w jego folderze nie ma żadnych otwartych plików"));
         return;
     }
-    this->customQuizes->removeQuiz(quiz);
-    mainWindow->getCustomQuizes().removeAll(quiz);
 }
 
 void TitleWidget::onQuizEdited(singleQuizPtr oldVersion, singleQuizPtr newVersion)
 {
-    //adding to database in quizCreatorWidget
-    this->customQuizes->removeQuiz(oldVersion);
-    this->customQuizes->addQuiz(newVersion);
+    this->fromEditMode = true;
+    bool value = this->mainWindow->getCustomQuizStore()->removeQuiz(oldVersion);
+    if(value) this->mainWindow->getCustomQuizStore()->addQuizAsync(newVersion);
+    else onQuizSavingFailed(newVersion);
+}
 
-    this->mainWindow->getCustomQuizes().removeAll(oldVersion);
-    this->mainWindow->getCustomQuizes().append(newVersion);
+void TitleWidget::onQuizSavingCompleted(singleQuizPtr quiz)
+{
+    Q_UNUSED(quiz);
+    if(fromEditMode){
+        QMessageBox::information(this, tr("Sukces"), tr("Pomyślnie zmieniono twój quiz"));
+        managaQuizes();
+    }
+    else{
+        QMessageBox::information(this, tr("Sukces"), tr("Pomyślnie zapisano twój quiz"));
+        this->ui->stackedWidget->setCurrentWidget(mainMenu);
+    }
+}
+
+void TitleWidget::onQuizSavingFailed(singleQuizPtr quiz)
+{
+    Q_UNUSED(quiz);
+    QMessageBox::critical(this, tr("ERROR"), tr("Nie udało się zapisać quizu"));
+    qDebug() <<"Nie udało się zapisać";
+    this->ui->stackedWidget->setCurrentWidget(creator);
 }

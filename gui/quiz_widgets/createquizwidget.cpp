@@ -4,6 +4,7 @@
 #include "./gui/question_widgets/questionlistwidget.h"
 #include "./gui/question_widgets/questionlistelement.h"
 #include "./gui/simple_widgets/imagedialog.h"
+#include "./logic/database/databasemanager.h"
 #include <QMessageBox>
 
 CreateQuizWidget::CreateQuizWidget(QWidget *parent) :
@@ -122,13 +123,18 @@ void CreateQuizWidget::onConfirmButtonClicked()
     QString message("");
 
     if(!(this->questionList->getValidQuestionCount() > 0)){
-        message = tr("Quiz musi zawierać co najmniej 2 pytania!");
+        message = tr("Quiz musi zawierać co najmniej 1 pytanie!");
     }
-    else if(this->ui->titleEdit->text().isEmpty()){
+    else if(this->ui->titleEdit->text().isEmpty() || !this->validateTitle(this->ui->titleEdit->text())){
         message = tr("Wprowadź tytuł quizu!");
     }
-    else if(this->quiz==nullptr && this->forbiddenTitles.contains(this->ui->titleEdit->text())){
-        message = tr("Nie możesz stworzyć tego quizu, najprawdopodobniej istnieje już quiz z tym tytułem!");
+    else if(this->forbiddenTitles.contains(DatabaseManager::toDirName(this->ui->titleEdit->text()))){
+        if(this->quiz==nullptr){
+            message = tr("Nie możesz stworzyć tego quizu, zmień jego nazwę");
+        }
+        else if(this->quiz->getTitle() != this->ui->titleEdit->text()){
+            message = tr("Wprowadź inny tutył");
+        }
     }
 
     if(message.isEmpty()){
@@ -157,4 +163,12 @@ void CreateQuizWidget::onQuizDenied()
 {
     this->quiz = nullptr;
     imageChanged = false;
+}
+
+bool CreateQuizWidget::validateTitle(const QString &title)
+{
+    for(const QChar& c: qAsConst(title)){
+        if(!this->forbiddenAloneSymbols.contains(c)) return true;
+    }
+    return false;
 }

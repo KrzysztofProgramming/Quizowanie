@@ -12,6 +12,7 @@ class TitleWidget;
 class ChangePathDialog;
 class DatabaseManager;
 class AboutDialog;
+class QuizStore;
 QT_END_NAMESPACE
 
 class MainWindow : public QMainWindow
@@ -22,13 +23,14 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
-    inline QList<singleQuizPtr>& getQuizes() {return quizList;}
-    inline const QList<singleQuizPtr>& getQuizes() const {return quizList;}
+    const QString& getQuizesDirectory() const {return quizesDirectory;}
+    const QString& getCustomQuizesDirectory() const {return customQuizesDirectory;}
+    const QString& getDataDirectory() const {return dataDirectory;}
+    const QString& getCustomQuizesFileDirectory() const {return customQuizesFileDirectory;}
 
-    inline QList<singleQuizPtr>& getCustomQuizes() {return customQuizList;}
-    inline const QList<singleQuizPtr>& getCustomQuizes() const {return customQuizList;}
+    QuizStore* getDefaultQuizStore() const {return defaultQuizStore;}
+    QuizStore* getCustomQuizStore() const {return customQuizStore;}
 
-    DatabaseManager* getCustomDbManager() const {return customDbManager;}
 
 private slots:
     void onChangingDirClicked();
@@ -48,11 +50,11 @@ private:
 
     Ui::MainWindow *ui;
     TitleWidget *titlewidget;
-    DatabaseManager *dbManager;
-    DatabaseManager *customDbManager;
     ChangePathDialog *pathDialog;
     QFile *pathFile;
     AboutDialog *aboutDialog;
+    QuizStore *defaultQuizStore;
+    QuizStore *customQuizStore;
 
 
 
@@ -60,7 +62,6 @@ private:
     QAction *changeDirAction;
     QAction *addQuizAction;
 
-    void loadAllQuizes();
     void createActions();
     void loadFromDataDir();
     bool savePathToFile();

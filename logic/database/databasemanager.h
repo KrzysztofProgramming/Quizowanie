@@ -10,8 +10,8 @@ public:
     DatabaseManager(const QString& directory);
     DatabaseManager(const QDir& directory);
     DatabaseManager(QDir&& directory);
-    static constexpr int SIZE = 10;
-    static constexpr char invalidCharacters[SIZE] = R"(/\?"<>:*|)";
+    static constexpr int SIZE = 11;
+    static constexpr char invalidCharacters[SIZE] = R"(/\?"<>:*| )";
     static constexpr char replacementChar = '-';
     /**
      * @brief saveQuiz
@@ -32,13 +32,19 @@ public:
 
     QList<singleQuizPtr> readAllQuizes();
     QList<singleQuizPtr> readAllQuizesAsync();
+    bool canCreateThisQuiz(const QString& title);
+    /**
+     * @brief getActualFoldersNames
+     * @return names of all catalogs in quiz directory
+     */
+    QStringList getActualFoldersNames() const;
 
     static bool clearDir(const QDir& dir);
 
     //classic copy or paste in new dir is creating child with oldDir name
     static bool moveDir(const QString& oldDirectory, const QString& newDirectory, bool removeOldDir);
-
-private:   static bool moveDirWithoutChecking(const QString& oldDirectory, const QString& newDirectory, bool removeOldDir);
+private:
+    static bool moveDirWithoutChecking(const QString& oldDirectory, const QString& newDirectory, bool removeOldDir);
 
 public:
     inline static bool copyDir(const QString& oldDirectory, const QString& newDirectory){
@@ -58,7 +64,10 @@ public:
     static bool containsQuizDatabase(const QDir& dir);
     static singleQuizPtr readQuizFromDir(const QDir& dir);
     static bool moveDirDirectly(const QString &oldDirectory, const QString &newDirectory, bool removeOldDir);
-private: static bool moveDirDirectlyWithoutChecking(const QString &oldDirectory, const QDir &newDirectory, bool removeOldDir);
+
+private:
+    static bool moveDirDirectlyWithoutChecking(const QString &oldDirectory, const QDir &newDirectory, bool removeOldDir);
+
 public:
     static bool isChildDirectory(const QDir& parent, const QDir& child);
 
@@ -69,14 +78,13 @@ public:
     bool changeDirectory(const QDir& directory, bool removeOld);
     bool changeDirectory(QDir&& directory, bool removeOld);
     bool changeDirectory(const QString &path, bool removeOld);
-
+    static QString toDirName(const QString& title);
 
     //new dir is clear and copy every file from oldDir
 private:
     //directory where are quizes folders
     QDir dir;
     void createDirIfNotExists();
-
 };
 
 class QuizPtrWithPath{

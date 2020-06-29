@@ -19,14 +19,11 @@
 #include "gui/simple_widgets/quizcreatorwidget.h"
 #include "./gui/simple_widgets/changepathdialog.h"
 
-void changeNumberTo0(int& number){
-    number = 0;
-}
 
 int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
-     MainWindow window;
-     window.show();
+    MainWindow window;
+    window.show();
     return a.exec();
 }

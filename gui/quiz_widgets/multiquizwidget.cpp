@@ -3,17 +3,20 @@
 #include "quizrepresentationwidget.h"
 #include "quiziconwidget.h"
 #include "singlequizwidget.h"
+#include "./logic/database/quizstore.h"
 #include <QPushButton>
 
-MultiQuizWidget::MultiQuizWidget(QWidget *parent) : QStackedWidget(parent)
+MultiQuizWidget::MultiQuizWidget(QWidget *parent, QuizStore *store) : QStackedWidget(parent)
   ,display(new QuizAreaDisplay(this))
   ,representationWidget(new QuizRepresentationWidget(this))
   ,quizWidget(new SingleQuizWidget(this))
+  ,store(store)
 {
     this->addWidget(display);
     this->addWidget(representationWidget);
     this->addWidget(quizWidget);
 
+    this->setQuizes(store->getAllQuizes());
 
     connect(display->returnButton(), &QPushButton::clicked, this, &MultiQuizWidget::backToMenu);
 
@@ -34,22 +37,24 @@ MultiQuizWidget::MultiQuizWidget(QWidget *parent) : QStackedWidget(parent)
         this->setCurrentWidget(this->display);
     });
 
+    connect(store, &QuizStore::quizAdded, this, &MultiQuizWidget::addQuiz);
+    connect(store, &QuizStore::quizRemoved, this, &MultiQuizWidget::removeQuiz);
 }
 
-void MultiQuizWidget::setQuiz(const QList<singleQuizPtr> &list)
+void MultiQuizWidget::setQuizes(const QList<singleQuizPtr> &list)
 {
     this->quizes = list;
     if(list.isEmpty()) return;
     setupGui();
 }
 
-void MultiQuizWidget::addQuiz(const singleQuizPtr &quiz)
+void MultiQuizWidget::addQuiz(singleQuizPtr quiz)
 {
     this->quizes.append(quiz);
     this->display->addQuiz(quiz);
 }
 
-void MultiQuizWidget::removeQuiz(const singleQuizPtr &quiz)
+void MultiQuizWidget::removeQuiz(singleQuizPtr quiz)
 {
     this->quizes.removeAll(quiz);
     this->display->removeQuiz(quiz);

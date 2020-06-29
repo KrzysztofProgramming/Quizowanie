@@ -61,7 +61,10 @@ bool QuizDatabase::createQuizDatabase(const QString &directory, const QString &d
 
     //reading scrips if this is first time
     if(initScripts.isEmpty()) readInitScripts();
-    db.open();
+    if(!db.open()){
+        qDebug() <<"nieotwarta baza";
+        return false;
+    }
 
     for(const auto& string: qAsConst(initScripts)){
         value = query.exec(string);

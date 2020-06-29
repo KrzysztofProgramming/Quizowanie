@@ -16,6 +16,7 @@ class QuizRepresentationWidget;
 class SingleQuizWidget;
 class MultiQuizWidget;
 class QuizCreatorWidget;
+class BusyLabel;
 
 class TitleWidget : public QWidget
 {
@@ -32,10 +33,12 @@ private slots:
     void createCustomQuiz();
     void managaQuizes();
     void backToMenu(bool fromEditMode = false);
-    void onQuizSaved(singleQuizPtr quiz);
+    void onQuizSave(singleQuizPtr quiz);
     void onQuizStartEdit(singleQuizPtr quiz);
     void onQuizRemove(singleQuizPtr quiz);
     void onQuizEdited(singleQuizPtr oldVersion, singleQuizPtr newVersion);
+    void onQuizSavingCompleted(singleQuizPtr quiz);
+    void onQuizSavingFailed(singleQuizPtr quiz);
 
 private:
     MainWindow *mainWindow;
@@ -44,6 +47,10 @@ private:
     MultiQuizWidget* defaultQuizes;
     MultiQuizWidget* customQuizes;
     QuizCreatorWidget* creator;
+    BusyLabel *busyLabel;
+
+    bool fromEditMode = false;;
+
 
 };
 
