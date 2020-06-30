@@ -128,7 +128,7 @@ void CreateQuizWidget::onConfirmButtonClicked()
     else if(this->ui->titleEdit->text().isEmpty() || !this->validateTitle(this->ui->titleEdit->text())){
         message = tr("Wprowadź tytuł quizu!");
     }
-    else if(this->forbiddenTitles.contains(DatabaseManager::toDirName(this->ui->titleEdit->text()))){
+    else if(this->forbiddenTitles.contains(this->ui->titleEdit->text())){
         if(this->quiz==nullptr){
             message = tr("Nie możesz stworzyć tego quizu, zmień jego nazwę");
         }

@@ -33,6 +33,7 @@ public:
      */
     const QString& getPath() const {return startPath;}
     QString getDisplayPath() const;
+    void setSelectingFiles(bool value) {this->selectingFiles = value;}
 
     void setDescription(const QString& text);
     QString getDescription() const;
@@ -65,6 +66,7 @@ private:
     QString errorMessage;
 
     bool noEmptyError = true;
+    bool selectingFiles = false;
 
     //default path checking, if commentFunction is nullptr
     void checkPath(const QString& path);

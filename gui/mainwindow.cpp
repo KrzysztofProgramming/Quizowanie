@@ -5,6 +5,8 @@
 #include "simple_widgets/changepathdialog.h"
 #include "simple_widgets/aboutdialog.h"
 #include "./logic/database/quizstore.h"
+#include "./logic/database/quizdatabase.h"
+#include "./gui/simple_widgets/busylabel.h"
 #include <QMessageBox>
 
 MainWindow::MainWindow(QWidget *parent)
@@ -14,17 +16,19 @@ MainWindow::MainWindow(QWidget *parent)
     , pathDialog(new ChangePathDialog(this))
     , pathFile(new QFile(customQuizesFileDirectory))
     , aboutDialog(new AboutDialog(this))
+    , busyLabel(new BusyLabel(this))
 {
     ui->setupUi(this);
     this->setWindowTitle("Quizowanie");
     loadFromDataDir();
 
-    defaultQuizStore = new QuizStore(this, quizesDirectory);
-    customQuizStore = new QuizStore(this, customQuizesDirectory);
+    defaultQuizStore = new QuizStore(this, defaultDbPath);
+    customQuizStore = new QuizStore(this, customDbPath);
 
     titlewidget = new TitleWidget(this);
 
     ui->centralWidget->addWidget(titlewidget);
+    ui->centralWidget->addWidget(busyLabel);
 
     createActions();
     putTextToAboutDialog();
@@ -39,24 +43,25 @@ MainWindow::~MainWindow()
 void MainWindow::onChangingDirClicked()
 {
     pathDialog->setPath(this->customQuizStore->getDir().absolutePath());
-    pathDialog->setDescription(tr("Podczas przenoszenia wycinany jest cały folder z quizami a jego stara lokalizacja jest usuwana"));
+    pathDialog->setSelectingFiles(false);
+    pathDialog->setDescription(tr("Podczas przenoszenia wycinana jest baza danych i folder \\img"));
     pathDialog->setNoEmptyError(false);
     pathDialog->setCommentFunction([=](const QString& path)->QString{
-        if(QDir(this->customQuizesDirectory).absolutePath() == path){
+        if(QDir(this->customDbPath).absolutePath() == path){
             return "";
         }
         QDir dir(path);
         if(!dir.isEmpty()){
             return tr("Ten folder nie jest pusty!");
         }
-        else if(DatabaseManager::isChildDirectory(this->customQuizesDirectory, dir)){
+        else if(DatabaseManager::isChildDirectory(QFileInfo(this->customDbPath).dir(), dir)){
             return tr("Folder do którego przenosisz quizy nie może być w aktualnym folderze quizów");
         }
         else return tr("OK");
     });
     pathDialog->setCheckingFunction([=](const QString& path)->bool{
         Q_UNUSED(path);
-        if(QDir(customQuizesDirectory).absolutePath() == path){
+        if(QDir(customDbPath).absolutePath() == path){
             return true;
         }
         QDir dir(path);
@@ -64,7 +69,7 @@ void MainWindow::onChangingDirClicked()
             QMessageBox::critical(pathDialog, tr("Error"), tr("Folder do którego chcesz przenieść quizy musi być pusty!"));
             return false;
         }
-        else if(DatabaseManager::isChildDirectory(this->customQuizesDirectory, dir)){
+        else if(DatabaseManager::isChildDirectory(QFileInfo(this->customDbPath).dir(), dir)){
             QMessageBox::critical(pathDialog, tr("Error"), tr("Folder do którego przenosisz quizy nie może być w aktualnym folderze quizów"));
             return false;
         }
@@ -74,13 +79,13 @@ void MainWindow::onChangingDirClicked()
     int value = pathDialog->exec();
     if(value == QDialog::Accepted){
         if(this->customQuizStore->getDir().absolutePath()!= pathDialog->getPath()){
-            this->customQuizesDirectory = QDir().relativeFilePath(pathDialog->getPath());
+            this->customDbPath = QDir().relativeFilePath(pathDialog->getPath() + '/' + this->getCustomQuizStore()->getDatabaseName());
 
-            if(this->savePathToFile() && this->customQuizStore->changeDir(customQuizesDirectory, true)){
+            if(this->savePathToFile() && this->customQuizStore->changeDir(pathDialog->getPath(), true)){
                 QMessageBox::information(this, tr("Sukces"), tr("Pomyślnie zmieniono ścieżkę"));
             }
             else{
-                this->customQuizesDirectory = QDir().relativeFilePath(this->customQuizStore->getDir().path());
+                this->customDbPath = QDir().relativeFilePath(this->customQuizStore->getDir().path() + "/" + this->getCustomQuizStore()->getDatabaseName());
                 this->savePathToFile();
                 QMessageBox::critical(this, tr("Niepowodzenie"), tr("Nie udało się zmienić ścieżki"));
             }
@@ -97,52 +102,98 @@ void MainWindow::onAddQuizClicked()
 {
     pathDialog->setPath("");
     pathDialog->setNoEmptyError(true);
-    pathDialog->setDescription("Wybierz folder z quizem, zostanie on skopiowany do innych twoich quizów");
+    pathDialog->setDescription("Wybierz bazę danych z innymi quizami zostaną one skopiowane do innych twoich quizów");
+    pathDialog->setSelectingFiles(true);
     pathDialog->setCommentFunction([=](const QString& path)->QString{
-        QDir dir(path);
-        if(!DatabaseManager::canMove(dir, this->customQuizStore->getDir()))
-            return tr("Folder o takiej nazwie już istnieje w katalogu z quizami");
-        else if(DatabaseManager::containsQuizDatabase(dir))
-            return tr("OK");
-        else
-            return tr("To nie jest właściwy quiz");
+        Q_UNUSED(path);
+        return "";
+
     });
 
     pathDialog->setCheckingFunction([=](const QString& path)->bool{
-        if(!DatabaseManager::canMove(path, this->customQuizStore->getDir())){
-            QMessageBox::information(pathDialog, tr("Zły folder"), tr("Folder o takiej nazwie już istnieje w katalogu z quizami"));
-            return false;
-        }
-        if(DatabaseManager::containsQuizDatabase(path))
-            return true;
-        QMessageBox::information(pathDialog, tr("Zły quiz"), tr("Ten folder nie zawiera quizu"));
-        return false;
+        Q_UNUSED(path);
+        return true;
     });
 
     int value = pathDialog->exec();
     if(value == QDialog::Accepted){
-        singleQuizPtr quiz = DatabaseManager::readQuizFromDir(pathDialog->getPath());
-        if(quiz == nullptr){
-            QMessageBox::critical(this, tr("ERROR"), tr("Nie udało się skopiować quizu, sprawdź czy na pewno jest poprawny"));
+        QList<singleQuizPtr> *list = new QList<singleQuizPtr>(QuizDatabase::readQuizesFromDatabase(pathDialog->getPath()));
+        if(list->isEmpty()){
+            QMessageBox::critical(this, tr("ERROR"), tr("Nie skopiowano żadnych quizów, sprawdź czy wybrany plik na pewno jest poprawny"));
         }
         else{
-            bool repetition = false;
-            for(const singleQuizPtr& ptr: qAsConst(this->customQuizList)){
-                if(quiz->getTitle() == ptr->getTitle()){
-                    repetition = true;
-                    break;
+            QStringList currentQuizesName = this->getCustomQuizStore()->getQuizesNames();
+            QStringList *unAddedQuizesNames = new QStringList;
+            QList<singleQuizPtr> quizesToRemove;
+            for(const singleQuizPtr& ptr: qAsConst(*list)){
+                if(currentQuizesName.contains(ptr->getTitle())){
+                    unAddedQuizesNames->append(ptr->getTitle());
+                    quizesToRemove.append(ptr);
                 }
             }
-            if(repetition){
-                QMessageBox::information(this, tr("Niepowodzenie"), tr("Już masz quiz o tytule: ") + quiz->getTitle());
+            for(const singleQuizPtr& ptr: qAsConst(quizesToRemove)){
+                list->removeAll(ptr);
             }
 
-            else if(!DatabaseManager::copyDir(pathDialog->getPath(), this->customQuizesDirectory)){
-                QMessageBox::critical(this, tr("Bład"), tr("Nie udało się skopowiać quizu"));
+            if(!list->isEmpty()){
+
+                QList<singleQuizPtr> *unAddedQuizes = new QList<singleQuizPtr>;
+                int listSize = list->size();
+                auto endIfFinished = [=](){
+                    if(list->isEmpty()){
+                        customQuizStore->disconnect(this);
+                        delete list;
+                        if(listSize == unAddedQuizes->size()){
+                            QMessageBox::critical(this, tr("ERROR"), tr("Nie udało się dodać quizów"));
+
+                        }
+                        else if(unAddedQuizesNames->isEmpty() && unAddedQuizes->isEmpty()){
+                            QMessageBox::information(this, tr("Sukces"), tr("Pomyslnie dodano quizy"));
+                        }
+                        else{
+                            QString duplicatesTitles = "";
+                            for(const QString& str: qAsConst(*unAddedQuizesNames)){
+                                duplicatesTitles += "\n-\"" + str + '"';
+                            }
+                            if(!unAddedQuizesNames->isEmpty()) duplicatesTitles += '\n';
+
+                            QString unknownReason = "";
+                            for(const singleQuizPtr& ptr: qAsConst(*unAddedQuizes)){
+                                unknownReason += "\n-\"" + ptr->getTitle() + '"';
+                            }
+                            if(!unAddedQuizesNames->isEmpty()) duplicatesTitles = tr("Nie dodano wszystkich Quizów;\n\nKonflikt tytułów:") + duplicatesTitles;
+                            if(!unAddedQuizes->isEmpty()) unknownReason = tr("Nie dodano z nieznanych problemów:") + unknownReason;
+                            QString message = duplicatesTitles + unknownReason;
+                            QMessageBox::warning(this, tr("Zakończono operacje"), message);
+                        }
+                        delete unAddedQuizes;
+                        delete unAddedQuizesNames;
+                        this->ui->centralWidget->setCurrentWidget(titlewidget);
+                        this->menuBar()->setEnabled(true);
+                    }
+                };
+                connect(customQuizStore, &QuizStore::quizAdded, this, [=](singleQuizPtr quiz){
+                    if(list->contains(quiz)){
+                        list->removeAll(quiz);
+                        endIfFinished();
+                    }
+                });
+                connect(customQuizStore, &QuizStore::quizAdded, this, [=](singleQuizPtr quiz){
+                    if(list->contains(quiz)){
+                        list->removeAll(quiz);
+                        unAddedQuizes->append(quiz);
+                        endIfFinished();
+                    }
+                });
+                this->getCustomQuizStore()->addQuizesAsync(*list);
+                this->ui->centralWidget->setCurrentWidget(busyLabel);
+                this->menuBar()->setEnabled(false);
             }
             else{
-                titlewidget->onQuizSave(quiz);
-                QMessageBox::information(this, tr("Sukces"), tr("Pomyślnie władowano twój quiz"));
+                delete list;
+                if(!unAddedQuizesNames->isEmpty()) QMessageBox::critical(this, tr("Bład"), tr("Nie dodano żadnego quizów, gdyż masz już quizy o takich tytułach"));
+                else QMessageBox::critical(this,tr("Zły plik"), tr("Z tego pliku nie można odczytać żadnych quizów"));
+                delete unAddedQuizesNames;
             }
         }
 
@@ -154,46 +205,40 @@ void MainWindow::createActions()
 {
     QMenu *menu = this->menuBar()->addMenu(tr("&Menu"));
 
-    this->addQuizAction = menu->addAction(tr("&Dodaj quiz"), this, &MainWindow::onAddQuizClicked);
+    this->addQuizAction = menu->addAction(tr("&Dodaj quizy"), this, &MainWindow::onAddQuizClicked);
     this->changeDirAction = menu->addAction(tr("&Zmiana ścieżki quizów"), this, &MainWindow::onChangingDirClicked);
     this->aboutAction = menu->addAction(tr("&O programie"), this, &MainWindow::onAboutClicked);
 }
 
 void MainWindow::loadFromDataDir()
 {
+    pathDialog->setSelectingFiles(false);
     //folder data
     if(!dataDir.exists()){
         dataDir.mkdir(dataDir.absolutePath());
     }
 
     //domyslne quizy w data/quizy
-    if(!DatabaseManager::isQuizesDirectory(quizesDirectory)){
-        QMessageBox::warning(this, tr("UWAGA"), tr("Nie znaleziono folderu z domyslnymi quizami, jeśli go usunąłeś, przywróć go aby móc z nich korzystać\n")
-                             + QDir::toNativeSeparators(QDir(quizesDirectory).absolutePath()));
+    if(!QFileInfo(defaultDbPath).exists()){
+        QMessageBox::warning(this, tr("UWAGA"), tr("Nie znaleziono bazy danych z domyslnymi quizami, jeśli ją usunąłeś, przywróć ją aby móc z nich korzystać\n")
+                             + QDir::toNativeSeparators(QDir(defaultDbPath).absolutePath()));
     }
 
     //lambda do wczytywania ścieżki custom quizów
     auto invalidFile = [=]()->QString{
         pathDialog->setNoEmptyError(true);
-        pathDialog->setDescription("Zaznacz ścieżkę z twoimi quizami lub taką, gdzie mogą zostać stworzone");
+        pathDialog->setDescription(tr("Zaznacz ścieżkę z nowym katalogiem na twoje quizy"));
         pathDialog->setCommentFunction([](const QString& path)->QString{
-            if(DatabaseManager::isQuizesDirectory(path))
-                return tr("OK");
-            return tr("Nie zawiera poprawnych quizów");
+            if(!QDir(path).isEmpty()){
+                return tr("Katalog musi być pusty");
+            }
+            return "";
         });
 
         pathDialog->setCheckingFunction([=](const QString& path)->bool{
-            if(QDir(path).isEmpty()){
-                int value= QMessageBox::warning(pathDialog, tr("UWAGA"), tr("Wybrany folder jest pusty będziesz musiał ponownie stworzyć swoje quizy, kontynuować?"),
-                                                QMessageBox::Yes | QMessageBox::Cancel);
-                if(value == QMessageBox::Yes) return true;
-                else return false;
-            }
-            else if(!DatabaseManager::isQuizesDirectory(path)){
-                int value= QMessageBox::warning(pathDialog, tr("UWAGA"), tr("Wybrany folder zawiera już inne pliki i nie zawiera quizów, będziesz musiał je stworzyć ponownie, kontynuować?"),
-                                                QMessageBox::Yes | QMessageBox::Cancel);
-                if(value == QMessageBox::Yes) return true;
-                else return false;
+            if(!QDir(path).isEmpty()){
+                QMessageBox::information(pathDialog, tr("Zajęty folder"), tr("Wybrany folder musi być pusty"));
+                return false;
             }
             return true;
         });
@@ -205,14 +250,14 @@ void MainWindow::loadFromDataDir()
     //zczytywanie ścieżki custom quizów i poprawiania w razie potrzeby
     QTextStream stream(this->pathFile);
     if(!pathFile->exists()){
-        QMessageBox::warning(this, tr("UWAGA"), tr("Nie odnaleziono ścieżki do folderu z twoimi quizami, wskaż ją teraz"));
+        QMessageBox::warning(this, tr("UWAGA"), tr("Nie odnaleziono folderu z twoimi quizami, wskaż nowy folder, gdzie będą mogły byś przechowywane"));
 
-        customQuizesDirectory = invalidFile();
+        customDbPath = invalidFile() + '/' + QFileInfo(customDbPath).fileName();
         if(!pathFile->open(QFile::WriteOnly | QFile::Text)){
             QMessageBox::critical(this, tr("ERROR"), tr("Błąd przy zapisie pliku"));
             exit(EXIT_FAILURE);
         }
-        stream<<customQuizesDirectory;
+        stream<<customDbPath;
         pathFile->close();
     }
     else{
@@ -220,21 +265,20 @@ void MainWindow::loadFromDataDir()
             QMessageBox::critical(this, tr("ERROR"), tr("Błąd przy zczytywaniu ścieżki"));
             exit(EXIT_FAILURE);
         }
-        customQuizesDirectory = stream.readAll();
+        customDbPath = stream.readAll();
         pathFile->close();
-        QDir customDir(customQuizesDirectory);
-        if(!customDir.exists()){
-            QMessageBox::warning(this, tr("UWAGA"), tr("Folder z twoimi quizami został usunięty, wskaż nowy, lub wyłącz program i go przywróć"));
-            customQuizesDirectory = invalidFile();
+        QFileInfo customDb(customDbPath);
+        if(!customDb.exists()){
+            QMessageBox::warning(this, tr("UWAGA"), tr("Baza danych z twoimi quizami została usunięay, wskaż nowy folder ich przechowywania lub wyłącz program i przywróć bazę"));
+            customDbPath = invalidFile() + '/' + QFileInfo(customDbPath).fileName();;
             if(!pathFile->open(QFile::WriteOnly | QFile::Text | QFile::Truncate)){
                 QMessageBox::critical(this, tr("ERROR"), tr("Błąd przy zapisywaniu śćieżki"));
                 exit(EXIT_FAILURE);
             }
-            stream<<customQuizesDirectory;
+            stream<<customDbPath;
             pathFile->close();
         }
     }
-
 
 }
 
@@ -247,7 +291,7 @@ bool MainWindow::savePathToFile()
         return false;
     }
 
-    stream<<this->customQuizesDirectory;
+    stream<<this->customDbPath;
     pathFile->close();
     return true;
 }
@@ -256,6 +300,6 @@ void MainWindow::putTextToAboutDialog()
 {
     this->aboutDialog->setText(tr("Program \"Quizowanie\" jest to program pozwalający na rozwiązywanie gotowych quizów, "
                                   "jak również tworzenia i grania we własne. Posiada również możliwość zmiany ścieżki przechowywania"
-                                  " swoich quizów oraz na dodanie innych, już gotowych.\n\n"
+                                  " swoich quizów oraz dodanie innych, już gotowych.\n\n"
                                   "Autor programu: Krzysztof Konieczny"));
 }

@@ -1,3 +1,5 @@
+PRAGMA foreign_keys = ON;
+
 DROP TABLE IF EXISTS quiz;
 
 CREATE TABLE quiz (
@@ -6,6 +8,7 @@ CREATE TABLE quiz (
     maxTime TIME,
     imgPath VARCHAR(250)
 );
+CREATE INDEX idx_quizTitle ON quiz (quizTitle);
 
 DROP TABLE IF EXISTS questions;
 
@@ -17,7 +20,7 @@ CREATE TABLE questions(
         points INT NOT NULL,
     maxTime TIME,
     imgPath VARCHAR(500),
-    CONSTRAINT `fk_quizId` FOREIGN KEY (quizId) REFERENCES quiz(quizId) ON UPDATE CASCADE ON DELETE RESTRICT
+    CONSTRAINT `fk_quizId` FOREIGN KEY (quizId) REFERENCES quiz(quizId) ON UPDATE CASCADE ON DELETE CASCADE
 );
 CREATE INDEX idx_quizId ON questions (quizId);
 
@@ -29,7 +32,7 @@ CREATE TABLE answers(
     answerDescription VARCHAR(100) NOT NULL,
     isGood BIT NOT NULL,
     PRIMARY KEY(questionId, answerNumber),
-    CONSTRAINT `fk_questionId` FOREIGN KEY (questionId) REFERENCES questions(questionId) ON UPDATE CASCADE ON DELETE RESTRICT
+    CONSTRAINT `fk_questionId` FOREIGN KEY (questionId) REFERENCES questions(questionId) ON UPDATE CASCADE ON DELETE CASCADE
 );
 
 CREATE INDEX idx_questionId ON answers (questionId);

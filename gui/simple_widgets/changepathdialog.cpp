@@ -67,7 +67,11 @@ QString ChangePathDialog::getDescription() const
 
 void ChangePathDialog::onPathButtonClicked()
 {
-    QString dirPath = QFileDialog::getExistingDirectory(this, "Wybierz folder");
+    QString dirPath;
+    if(selectingFiles){
+        dirPath = QFileDialog::getOpenFileName(this, tr("Wybierz plik"));
+    }
+    else dirPath = QFileDialog::getExistingDirectory(this, tr("Wybierz folder"));
     if(dirPath.isEmpty()) return;
     setDisplayPath(dirPath);
 }

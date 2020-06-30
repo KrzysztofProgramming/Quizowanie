@@ -88,6 +88,7 @@ void TitleWidget::backToMenu(bool fromEditMode)
 void TitleWidget::onQuizSave(singleQuizPtr quiz)
 {
     this->fromEditMode = false;
+    this->currentlySavingQuiz = quiz;
     this->mainWindow->getCustomQuizStore()->addQuizAsync(quiz);
     this->ui->stackedWidget->setCurrentWidget(busyLabel);
 }
@@ -115,13 +116,19 @@ void TitleWidget::onQuizEdited(singleQuizPtr oldVersion, singleQuizPtr newVersio
 {
     this->fromEditMode = true;
     bool value = this->mainWindow->getCustomQuizStore()->removeQuiz(oldVersion);
-    if(value) this->mainWindow->getCustomQuizStore()->addQuizAsync(newVersion);
+    if(value){
+        this->currentlySavingQuiz = newVersion;
+        this->mainWindow->getCustomQuizStore()->addQuizAsync(newVersion);
+    }
     else onQuizSavingFailed(newVersion);
+    this->ui->stackedWidget->setCurrentWidget(busyLabel);
 }
 
 void TitleWidget::onQuizSavingCompleted(singleQuizPtr quiz)
 {
-    Q_UNUSED(quiz);
+    if(quiz!=currentlySavingQuiz) return;
+    currentlySavingQuiz = nullptr;
+
     if(fromEditMode){
         QMessageBox::information(this, tr("Sukces"), tr("Pomyślnie zmieniono twój quiz"));
         managaQuizes();
@@ -134,7 +141,8 @@ void TitleWidget::onQuizSavingCompleted(singleQuizPtr quiz)
 
 void TitleWidget::onQuizSavingFailed(singleQuizPtr quiz)
 {
-    Q_UNUSED(quiz);
+    if(quiz!=currentlySavingQuiz) return;
+    currentlySavingQuiz = nullptr;
     QMessageBox::critical(this, tr("ERROR"), tr("Nie udało się zapisać quizu"));
     qDebug() <<"Nie udało się zapisać";
     this->ui->stackedWidget->setCurrentWidget(creator);

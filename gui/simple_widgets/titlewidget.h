@@ -49,8 +49,8 @@ private:
     QuizCreatorWidget* creator;
     BusyLabel *busyLabel;
 
-    bool fromEditMode = false;;
-
+    bool fromEditMode = false;
+    singleQuizPtr currentlySavingQuiz = nullptr;
 
 };
 

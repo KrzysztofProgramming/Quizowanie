@@ -7,9 +7,7 @@
 class DatabaseManager
 {
 public:
-    DatabaseManager(const QString& directory);
-    DatabaseManager(const QDir& directory);
-    DatabaseManager(QDir&& directory);
+    DatabaseManager(const QString& dbPath);
     static constexpr int SIZE = 11;
     static constexpr char invalidCharacters[SIZE] = R"(/\?"<>:*| )";
     static constexpr char replacementChar = '-';
@@ -22,6 +20,10 @@ public:
 
     bool saveQuiz(singleQuizPtr quiz, bool override = false);
     QFuture<bool> saveQuizAsync(singleQuizPtr quiz, bool override = false);
+    QFuture<QList<singleQuizPtr>> saveQuizes(const QList<singleQuizPtr>& quizes);
+
+    const QDir& getDir() const {return databaseDir;}
+    const QString& getDatabasePath() const {return dbPath;}
     /**
      * @brief removeQuiz
      * @param title
@@ -31,20 +33,15 @@ public:
 
 
     QList<singleQuizPtr> readAllQuizes();
-    QList<singleQuizPtr> readAllQuizesAsync();
-    bool canCreateThisQuiz(const QString& title);
     /**
      * @brief getActualFoldersNames
      * @return names of all catalogs in quiz directory
      */
-    QStringList getActualFoldersNames() const;
 
-    static bool clearDir(const QDir& dir);
+    static bool clearDir(const QDir& databaseDir);
 
     //classic copy or paste in new dir is creating child with oldDir name
     static bool moveDir(const QString& oldDirectory, const QString& newDirectory, bool removeOldDir);
-private:
-    static bool moveDirWithoutChecking(const QString& oldDirectory, const QString& newDirectory, bool removeOldDir);
 
 public:
     inline static bool copyDir(const QString& oldDirectory, const QString& newDirectory){
@@ -55,37 +52,30 @@ public:
         return moveDir(oldDirectory, newDirectory, true);
     }
     static bool canMove(const QDir& oldDirectory, const QDir& newDirectory);
-    /**
-     * @brief isQuizesDirectory this function only check is directory contains folders with databases with correct names
-     * doesn't make deep validation
-     * @return true if this quizes directory seems to be valid
-     */
-    static bool isQuizesDirectory(const QString& path);
-    static bool containsQuizDatabase(const QDir& dir);
-    static singleQuizPtr readQuizFromDir(const QDir& dir);
+
     static bool moveDirDirectly(const QString &oldDirectory, const QString &newDirectory, bool removeOldDir);
 
 private:
     static bool moveDirDirectlyWithoutChecking(const QString &oldDirectory, const QDir &newDirectory, bool removeOldDir);
+    static bool moveDirWithoutChecking(const QString& oldDirectory, const QString& newDirectory, bool removeOldDir);
 
 public:
     static bool isChildDirectory(const QDir& parent, const QDir& child);
 
-    inline bool clearDir() {return clearDir(this->dir);}
-
-    const QDir& getDir() const {return dir;}
-
-    bool changeDirectory(const QDir& directory, bool removeOld);
-    bool changeDirectory(QDir&& directory, bool removeOld);
+    inline bool clearDir() {return clearDir(this->databaseDir);}
     bool changeDirectory(const QString &path, bool removeOld);
-    static QString toDirName(const QString& title);
 
     //new dir is clear and copy every file from oldDir
 private:
     //directory where are quizes folders
-    QDir dir;
-    void createDirIfNotExists();
+    QString dbPath;
+    QDir databaseDir;
 };
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 class QuizPtrWithPath{
     singleQuizPtr ptr = nullptr;

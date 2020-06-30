@@ -16,17 +16,20 @@ class QuizStore : public QObject
 {
     Q_OBJECT
 public:
-    explicit QuizStore(MainWindow *parent, const QString& dbDir);
+    explicit QuizStore(MainWindow *parent, const QString& dbPath);
     ~QuizStore();
 
     bool removeQuiz(const singleQuizPtr& quiz);
     bool editQuiz(const singleQuizPtr& oldQuiz, const singleQuizPtr& newQuiz);
 
     void addQuizAsync(const singleQuizPtr& quiz);
+    void addQuizesAsync(const QList<singleQuizPtr>& quizes);
     void loadAllQuizes();
     bool changeDir(const QString& newDir, bool removeOld);
-    QStringList getActualFoldersNames() const;
+    QString getDatabasePath() const;
+    QString getDatabaseName() const;
     const QDir& getDir() const;
+    QStringList getQuizesNames() const;
 
     const QList<singleQuizPtr>& getAllQuizes() const {return quizes;}
 
@@ -35,18 +38,12 @@ signals:
     void quizRemoved(singleQuizPtr quiz);
     void addingFailed(singleQuizPtr quiz);
 
-private slots:
-    void onWatcherFinished();
 private:
 
     QList<singleQuizPtr> quizes;
     MainWindow *mainWindow;
     DatabaseManager *dbManager;
 
-    QFutureWatcher<bool> *watcher;
-    QFuture<bool> future;
-
-    singleQuizPtr currentQuiz;
 };
 
 #endif // QUIZSTORE_H

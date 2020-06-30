@@ -21,7 +21,7 @@ QuizCreatorWidget::QuizCreatorWidget(MainWindow *mainWindow, QWidget *parent)
     this->addWidget(questionCreator);
 
     //setting forbidden names
-    quizCreator->setForbiddenTitles(mainWindow->getCustomQuizStore()->getActualFoldersNames());
+    quizCreator->setForbiddenTitles(mainWindow->getCustomQuizStore()->getQuizesNames());
 
     connect(quizCreator, &CreateQuizWidget::addNewQuestionClicked, this, &QuizCreatorWidget::onAddingQuestion);
     connect(questionCreator, &CreateQuestionWidget::questionConfirmed, this, &QuizCreatorWidget::onConfirmNewQuestion);

@@ -13,6 +13,7 @@ class ChangePathDialog;
 class DatabaseManager;
 class AboutDialog;
 class QuizStore;
+class BusyLabel;
 QT_END_NAMESPACE
 
 class MainWindow : public QMainWindow
@@ -23,8 +24,8 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
-    const QString& getQuizesDirectory() const {return quizesDirectory;}
-    const QString& getCustomQuizesDirectory() const {return customQuizesDirectory;}
+   // const QString& getDefaultDbPath() const {return defaultDbPath;}
+   // const QString& getCustomDbPath() const {return customDbPath;}
     const QString& getDataDirectory() const {return dataDirectory;}
     const QString& getCustomQuizesFileDirectory() const {return customQuizesFileDirectory;}
 
@@ -38,13 +39,10 @@ private slots:
     void onAddQuizClicked();
 
 private:
-    const QString quizesDirectory = "data/quizy";
-    QString customQuizesDirectory = "wlasneQuizy";
+    const QString defaultDbPath = "data/quizy/quizy.db";
+    QString customDbPath = "wlasneQuizy/quizy.db";
     const QString dataDirectory = "data";
     const QString customQuizesFileDirectory = "data/customQuizesPath.txt";
-
-    QList<singleQuizPtr> quizList;
-    QList<singleQuizPtr> customQuizList;
 
     QDir dataDir;
 
@@ -55,6 +53,7 @@ private:
     AboutDialog *aboutDialog;
     QuizStore *defaultQuizStore;
     QuizStore *customQuizStore;
+    BusyLabel *busyLabel;
 
 
 
@@ -66,7 +65,6 @@ private:
     void loadFromDataDir();
     bool savePathToFile();
     void putTextToAboutDialog();
-
 
 
 };

@@ -22,7 +22,6 @@ public:
     singleQuizPtr getQuiz() const;
     void setQuiz(const singleQuizPtr& quiz);
     inline void setQuizToEdit(const singleQuizPtr& quiz) { setQuiz(quiz); this->quizToEdit = quiz;}
-
     void reset();
 
 signals:
